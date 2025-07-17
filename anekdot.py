@@ -15,13 +15,26 @@ load_dotenv()
 # Tokens
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 ENDPOINT = os.getenv('ENDPOINT')
-ENV_VARS = ('TELEGRAM_TOKEN', 'ENDPOINT')
+ENV_VARS = (
+    'FANATI_MESSAGE_ID',
+    'FANATI_CHAT_ID',
+    'TELEGRAM_TOKEN',
+    'ENDPOINT')
+
+# https://t.me/+W5J1gv1WzJ1iMjEy подписывайтесь на тгк фанаты семги припущенной
+FANATI_CHAT_ID = os.getenv('FANATI_CHAT_ID')
+FANATI_MESSAGE_ID = os.getenv('FANATI_MESSAGE_ID')
 
 # Numerical Constants
 CUT_JOKE_LEFT = 12
 CUT_JOKE_RIGHT = -2
 MINUTE = 60
 DEFAULT_PERIOD = 5
+
+# For фанаты семги припущенной
+BOT_ONLINE_TEXT = "Бот запущен"
+BOT_OFFLINE_TEXT = "Бот выключен"
+EDIT_MESSAGE_ERROR = "Ошибка при редактировании сообщения статуса: {error}"
 
 # Button Texts
 JOKE_BUTTON = '🤡 - Анекдот'
@@ -107,7 +120,7 @@ def handle_documentation(message):
 
 
 def check_vars():
-    """Checking env variables for availability."""
+    """Check env variables for availability."""
     missing_vars = [name for name in ENV_VARS if not globals()[name]]
     if missing_vars:
         error_msg = CHECK_VARS_CRITICAL.format(vars=missing_vars)
@@ -169,7 +182,7 @@ def nonstop(message):
 
 @bot.message_handler(commands=['docs'])
 def documentation(message):
-    """Shows a documentation."""
+    """Show a documentation."""
     bot.send_message(
         chat_id=message.chat.id,
         text=DOCUMENTATION)
@@ -177,7 +190,7 @@ def documentation(message):
 
 @bot.message_handler(commands=['stop'])
 def stop_bot(message):
-    """Stops sending jokes."""
+    """Stop sending jokes."""
     try:
         stop_sending.set()
         bot.send_message(
@@ -193,7 +206,7 @@ def stop_bot(message):
 
 @bot.message_handler(commands=['period'])
 def ask_for_period(message):
-    """Asking user for auto-sending jokes period."""
+    """Ask user for auto-sending jokes period."""
     bot.send_message(message.chat.id, ASK_FOR_PERIOD_TEXT.format(
         period=current_period / MINUTE
     ))
@@ -218,6 +231,33 @@ def set_period(message):
         bot.register_next_step_handler(message, set_period)
 
 
+def update_bot_status(is_online=True):
+    """Update the status message in the fanati."""
+    try:
+        text = BOT_ONLINE_TEXT if is_online else BOT_OFFLINE_TEXT
+        bot.edit_message_text(
+            chat_id=FANATI_CHAT_ID,
+            message_id=FANATI_MESSAGE_ID,
+            text=text
+        )
+    except Exception as e:
+        logging.exception(EDIT_MESSAGE_ERROR.format(error=e))
+        raise e
+
+
+def main():
+    """Main bot logic function."""
+    check_vars()
+    try:
+        update_bot_status(is_online=True)
+        bot.polling(non_stop=True)
+    except Exception as e:
+        logging.exception(f"ОШибка при запуске бота: {e}")
+        update_bot_status(is_online=False)
+    finally:
+        update_bot_status(is_online=False)
+
+
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
@@ -225,5 +265,4 @@ if __name__ == '__main__':
         encoding='utf-8',
         format='%(asctime)s %(funcName)s %(levelname)s %(message)s'
     )
-    check_vars()
-    bot.polling(non_stop=True)
+    main()
